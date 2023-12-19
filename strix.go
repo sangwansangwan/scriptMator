@@ -84,14 +84,12 @@ func handlePostRequest(client *mongo.Client) {
 	}
 	defer cur0.Close(context.TODO())
 
-	// Loop through the cursor and decode each document
 	for cur0.Next(context.TODO()) {
 		var result BatDataAll
 		err := cur0.Decode(&result)
 		if err != nil {
 			log.Fatal(err)
 		}
-		// Print the result (you can replace this with your desired logic)
 		batDataAllObjArray = append(batDataAllObjArray, result)
 	}
 
@@ -103,10 +101,10 @@ func handlePostRequest(client *mongo.Client) {
 
 	colBatDataMain := client.Database("portal").Collection("batDataMain")
 	colProcessedData := client.Database("portal").Collection("processedAnalytics")
-	// myGlobalIP := []string{"A6FFBE11"}
+	processTillTime := uint64(1609462861000)
 
 	for _, v := range batDataAllObjArray {
-		globalTimeStart := uint64(1609462861000)
+		globalTimeStart := processTillTime
 		if v.LASTTIME != 0 {
 			globalTimeStart = v.LASTTIME
 		}
@@ -146,62 +144,13 @@ func handlePostRequest(client *mongo.Client) {
 
 				errCV := json.Unmarshal([]byte(result.CV), &cellDataProcessed)
 				if errCV != nil {
-					//log.Fatalf("Error unmarshalling the JSON: %s", err)
-
 					fmt.Println("Eror in cva json ", result.ID)
 				}
 
 				errTMP := json.Unmarshal([]byte(result.TS), &tempDataProcessed)
 				if errTMP != nil {
-					//log.Fatalf("Error unmarshalling the JSON: %s", err)
 					fmt.Println("Eror in tac json ", result.ID)
 				}
-
-				// if len(tempDataProcessed.TempSenP) < 1 || len(cellDataProcessed.CellVoltP) < 1 || len(tempDataProcessed.TempSenP) > 4 || len(cellDataProcessed.CellVoltP) > 17 {
-				// 	continue
-				// }
-
-				// if firstTime == 1 && (len(tempDataProcessed.TempSenP) != tempsenLen || len(cellDataProcessed.CellVoltP) != cellVolLen) {
-				// 	fmt.Println(tempDataProcessed.TempSenP, tempsenLen)
-				// 	fmt.Println("Skipping lower condition")
-				// 	continue
-				// }
-
-				// if firstTime == 0 {
-				// 	firstTime = 1
-				// }
-
-				// if len(dataToIns.TEMPSEN) > 0 {
-				// 	index := len(dataToIns.TEMPSEN[0])
-				// 	if len(tempDataProcessed.TempSenP) < len(dataToIns.TEMPSEN) {
-				// 		difference := len(dataToIns.TEMPSEN) - len(tempDataProcessed.TempSenP)
-				// 		for i := 0; i < difference; i++ {
-				// 			tempDataProcessed.TempSenP = append(tempDataProcessed.TempSenP, 0)
-				// 		}
-				// 	}
-				// 	dataToIns.TEMPSEN = insertColumn(dataToIns.TEMPSEN, tempDataProcessed.TempSenP, index)
-
-				// } else {
-				// 	index := 0
-				// 	tempTempSen := make([][]int, tempsenLen)
-				// 	dataToIns.TEMPSEN = insertColumn(tempTempSen, tempDataProcessed.TempSenP, index)
-				// }
-
-				// if len(dataToIns.CELLVOLT) > 0 {
-				// 	index := len(dataToIns.CELLVOLT[0])
-				// 	if len(cellDataProcessed.CellVoltP) < len(dataToIns.CELLVOLT) {
-				// 		difference := len(dataToIns.CELLVOLT) - len(cellDataProcessed.CellVoltP)
-				// 		for i := 0; i < difference; i++ {
-				// 			cellDataProcessed.CellVoltP = append(cellDataProcessed.CellVoltP, 0)
-				// 		}
-				// 	}
-				// 	dataToIns.CELLVOLT = insertColumn(dataToIns.CELLVOLT, cellDataProcessed.CellVoltP, index)
-
-				// } else {
-				// 	index := 0
-				// 	tempCellSen := make([][]int, cellVolLen)
-				// 	dataToIns.CELLVOLT = insertColumn(tempCellSen, cellDataProcessed.CellVoltP, index)
-				// }
 
 				dataToIns.SOC = append(dataToIns.SOC, result.SOC)
 				dataToIns.SOH = append(dataToIns.SOH, result.SOH)
@@ -256,7 +205,19 @@ func handlePostRequest(client *mongo.Client) {
 		}
 
 		fmt.Println("Written data: ", v.BID)
-		// To Do Have to delete data of that battery before the processsed date
+
+		filterDelete := bson.M{
+			"bid":       v.BID,
+			"timestamp": bson.M{"$lt": processTillTime},
+		}
+		ctxDelete, cancelDelete := context.WithCancel(context.Background())
+		defer cancelDelete()
+
+		result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Printf("Deleted %v documents\n", result.DeletedCount)
 
 	}
 
@@ -277,28 +238,8 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	//router := mux.NewRouter()
-
-	//reader := bufio.NewReader(os.Stdin)
-
-	//fmt.Print("Do you want to proceed? Enter 'Y' to continue: ")
-	//input, _ := reader.ReadString('\n')
-	//input = strings.TrimSpace(input)
 
 	handlePostRequest(client)
-	// if strings.ToLower(input) == "y" {
-	// 	handlePostRequest()
-	// } else {
-	// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	// 	defer cancel()
-	// 	err := client.Disconnect(ctx)
-	// 	if err != nil {
-	// 		log.Fatalf("Error disconnecting from MongoDB: %v", err)
-	// 	}
-	// 	fmt.Println("Connection to MongoDB closed.")
-	// }
-
-	//http.ListenAndServe(":8000", router)
 }
 
 func insertColumn(matrix [][]int, newColumn []int, index int) [][]int {
