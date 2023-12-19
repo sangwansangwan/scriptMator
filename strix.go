@@ -101,14 +101,15 @@ func handlePostRequest(client *mongo.Client) {
 
 	colBatDataMain := client.Database("portal").Collection("batDataMain")
 	colProcessedData := client.Database("portal").Collection("processedAnalytics")
-	processTillTime := uint64(1609462861000)
+	initialTime := uint64(1609462861000)
+	processTillTime := uint64(1690196118000)
 
 	for _, v := range batDataAllObjArray {
-		globalTimeStart := processTillTime
+		globalTimeStart := initialTime
 		if v.LASTTIME != 0 {
 			globalTimeStart = v.LASTTIME
 		}
-		for globalTimeStart < 1690196118000 {
+		for globalTimeStart < processTillTime {
 
 			tempFrom := globalTimeStart
 
