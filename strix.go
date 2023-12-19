@@ -104,7 +104,7 @@ func handlePostRequest(client *mongo.Client) {
 	colBatDataMain := client.Database("portal").Collection("batDataMain")
 	colProcessedData := client.Database("portal").Collection("processedAnalytics")
 	// myGlobalIP := []string{"A6FFBE11"}
-
+	batIndex := 0
 	for _, v := range batDataAllObjArray {
 		globalTimeStart := uint64(1609462861000)
 		if v.LASTTIME != 0 {
@@ -255,7 +255,8 @@ func handlePostRequest(client *mongo.Client) {
 			//-------------------------------------------------------------------------------
 		}
 
-		fmt.Println("Written data: ", v.BID)
+		batIndex++
+		fmt.Println("Written data: ", v.BID, "Index", batIndex)
 		// To Do Have to delete data of that battery before the processsed date
 
 	}
