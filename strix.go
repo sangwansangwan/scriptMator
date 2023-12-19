@@ -102,7 +102,7 @@ func handlePostRequest(client *mongo.Client) {
 	colBatDataMain := client.Database("portal").Collection("batDataMain")
 	colProcessedData := client.Database("portal").Collection("processedAnalytics")
 	processTillTime := uint64(1609462861000)
-
+	index := 0
 	for _, v := range batDataAllObjArray {
 		globalTimeStart := processTillTime
 		if v.LASTTIME != 0 {
@@ -117,7 +117,7 @@ func handlePostRequest(client *mongo.Client) {
 
 			filter1 := bson.M{"timestamp": bson.M{"$gte": tempFrom, "$lt": tempTo}, "bid": v.BID}
 			ctx1, cancel1 := context.WithCancel(context.Background())
-			defer cancel1()
+			
 
 			cur, err := colBatDataMain.Find(ctx1, filter1)
 			if err != nil {
@@ -171,6 +171,8 @@ func handlePostRequest(client *mongo.Client) {
 				log.Fatal(err)
 			}
 
+			cancel1()
+
 			if len(dataToIns.SOC) > 0 {
 
 				_, err := colProcessedData.InsertOne(context.TODO(), dataToIns)
@@ -205,18 +207,20 @@ func handlePostRequest(client *mongo.Client) {
 		}
 
 		// -----------------  Delete old data of BID whose data is proccessed -------------
-		fmt.Println("Written data: ", v.BID)
+		index++
+		fmt.Println("Written data: ", v.BID, index)
 		filterDelete := bson.M{
 			"bid":       v.BID,
 			"timestamp": bson.M{"$lt": processTillTime},
 		}
 		ctxDelete, cancelDelete := context.WithCancel(context.Background())
-		defer cancelDelete()
+		
 
 		result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
 		if err != nil {
 			log.Println(err)
 		}
+		cancelDelete()
 		fmt.Printf("Deleted %v documents of: %s\n", result.DeletedCount, v.BID)
 
 		// -----------------------------------------------------------------------------------
@@ -232,6 +236,8 @@ func handlePostRequest(client *mongo.Client) {
 }
 
 func main() {
+
+	fmt.Println("Script version: 12")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	clientOptions := options.Client().ApplyURI("mongodb://administrator:%26%5E%23%25%21%2612dgf_%23%26@15.207.150.151:49125/?authSource=portal&readPreference=primary&directConnection=true&ssl=false")
 	client, err := mongo.Connect(ctx, clientOptions)
