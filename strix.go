@@ -144,12 +144,12 @@ func handlePostRequest(client *mongo.Client) {
 
 				errCV := json.Unmarshal([]byte(result.CV), &cellDataProcessed)
 				if errCV != nil {
-					fmt.Println("Eror in cva json ", result.ID)
+					fmt.Println("Eror unmarshalling cellvolt", result.ID)
 				}
 
 				errTMP := json.Unmarshal([]byte(result.TS), &tempDataProcessed)
 				if errTMP != nil {
-					fmt.Println("Eror in tac json ", result.ID)
+					fmt.Println("Eror unmarshalling tempsen ", result.ID)
 				}
 
 				dataToIns.SOC = append(dataToIns.SOC, result.SOC)
@@ -204,8 +204,8 @@ func handlePostRequest(client *mongo.Client) {
 			//-------------------------------------------------------------------------------
 		}
 
+		// -----------------  Delete old data of BID whose data is proccessed -------------
 		fmt.Println("Written data: ", v.BID)
-
 		filterDelete := bson.M{
 			"bid":       v.BID,
 			"timestamp": bson.M{"$lt": processTillTime},
@@ -217,7 +217,9 @@ func handlePostRequest(client *mongo.Client) {
 		if err != nil {
 			log.Println(err)
 		}
-		fmt.Printf("Deleted %v documents\n", result.DeletedCount)
+		fmt.Printf("Deleted %v documents of: %s\n", result.DeletedCount, v.BID)
+
+		// -----------------------------------------------------------------------------------
 
 	}
 
