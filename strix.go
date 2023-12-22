@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -56,6 +57,7 @@ type ProcessedData struct {
 	TIMESTAMP []int64
 	TEMPSEN   [][]int32
 	CELLVOLT  [][]uint32
+	BID_DEC		uint64
 }
 
 type CVAStruct struct {
@@ -78,18 +80,25 @@ func handlePostRequest(client *mongo.Client) {
 	ctx4, cancel4 := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel4()
 
-	cur0, err0 := colBatDataAll.Find(ctx4, bson.M{})
+	findOptions := options.Find()
+	// Sort by `price` field descending
+	findOptions.SetSort(bson.D{{"_id", -1}})
+
+	cur0, err0 := colBatDataAll.Find(ctx4, bson.M{}, findOptions)
 	if err0 != nil {
 		log.Fatal(err0)
 	}
 	defer cur0.Close(context.TODO())
 
+	//fmt.Println("run")
 	for cur0.Next(context.TODO()) {
 		var result BatDataAll
 		err := cur0.Decode(&result)
 		if err != nil {
 			log.Fatal(err)
 		}
+		// fmt.Println(result.BID)
+		// break;
 		batDataAllObjArray = append(batDataAllObjArray, result)
 	}
 
@@ -97,13 +106,18 @@ func handlePostRequest(client *mongo.Client) {
 		log.Fatal(err)
 	}
 
+	//return;
+
 	// -----------------------------------------------
 
-	colBatDataMain := client.Database("portal").Collection("batDataMain")
+	colBatDataMain := client.Database("portal").Collection("batDataMain1")
 	colProcessedData := client.Database("portal").Collection("processedAnalytics")
-	initialTime := uint64(1609462861000)
-	processTillTime := uint64(1690196118000)
-
+	//initialTime := uint64(1609462861000)
+	initialTime := uint64(1690196118000)
+	//processTillTime := uint64(1690196118000)
+	processTillTime := uint64(1703017704000)
+	
+	index := 0
 	for _, v := range batDataAllObjArray {
 		globalTimeStart := initialTime
 		if v.LASTTIME != 0 {
@@ -129,6 +143,13 @@ func handlePostRequest(client *mongo.Client) {
 			dataToIns.BID = v.BID
 			dataToIns.FROM = tempFrom
 			dataToIns.TO = tempTo
+
+			bidDec, err := strconv.ParseUint(v.BID, 16, 64)
+			// in case of any error
+			if err != nil {
+			  fmt.Println(err)
+			}
+			dataToIns.BID_DEC = bidDec
 
 			for cur.Next(context.TODO()) {
 
@@ -207,14 +228,18 @@ func handlePostRequest(client *mongo.Client) {
 		}
 
 		// -----------------  Delete old data of BID whose data is proccessed -------------
-		fmt.Println("Written data: ", v.BID)
+		index++
+		fmt.Println("Written data: ", v.BID, index)
 		filterDelete := bson.M{
 			"bid":       v.BID,
 			"timestamp": bson.M{"$lt": processTillTime},
 		}
 		ctxDelete, cancelDelete := context.WithCancel(context.Background())
+		
 
+		fmt.Println("Deleting with filter: ",filterDelete)
 		result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
+
 		if err != nil {
 			log.Println(err)
 		}
@@ -235,7 +260,7 @@ func handlePostRequest(client *mongo.Client) {
 
 func main() {
 
-	fmt.Println("Script version: 12")
+	fmt.Println("Script version: 14")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	clientOptions := options.Client().ApplyURI("mongodb://administrator:%26%5E%23%25%21%2612dgf_%23%26@15.207.150.151:49125/?authSource=portal&readPreference=primary&directConnection=true&ssl=false")
 	client, err := mongo.Connect(ctx, clientOptions)
@@ -245,7 +270,10 @@ func main() {
 		return
 	}
 
+	
 	handlePostRequest(client)
+
+	client.Disconnect(context.TODO())
 }
 
 func insertColumn(matrix [][]int, newColumn []int, index int) [][]int {
