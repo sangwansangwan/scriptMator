@@ -129,18 +129,6 @@ func handlePostRequest(client *mongo.Client) {
 				dataToIns.TIMESTAMP = append(dataToIns.TIMESTAMP, result.Timestamp)
 				dataToIns.MID = result.Mid
 				dataToIns.IMEI = result.Imei
-
-				// dataToIns.SOC = append(dataToIns.SOC, result.SOC)
-				// dataToIns.SOH = append(dataToIns.SOH, result.SOH)
-				// dataToIns.CURR = append(dataToIns.CURR, result.CURR)
-				// dataToIns.PV = append(dataToIns.PV, result.PV)
-				// dataToIns.CYCLES = append(dataToIns.CYCLES, result.CYCLES)
-				// dataToIns.BRDTEMP = append(dataToIns.BRDTEMP, result.BRDTEMP)
-				// dataToIns.RPWR = append(dataToIns.RPWR, result.RPWR)
-				// dataToIns.STATUS = append(dataToIns.STATUS, result.STATUS)
-				// dataToIns.SOHWS = append(dataToIns.SOHWS, result.SOHWS)
-				// dataToIns.CELLVOLT = append(dataToIns.CELLVOLT, cellDataProcessed.CellVoltP)
-
 			}
 
 			if err := cur.Err(); err != nil {
@@ -183,19 +171,20 @@ func handlePostRequest(client *mongo.Client) {
 		}
 
 		// -----------------  Delete old data of BID whose data is proccessed -------------
-		fmt.Println("Written data: ", v.BID)
-		filterDelete := bson.M{
-			"bid":       v.BID,
-			"timestamp": bson.M{"$lt": processTillTime},
-		}
-		ctxDelete, cancelDelete := context.WithCancel(context.Background())
 
-		result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
-		if err != nil {
-			log.Println(err)
-		}
-		cancelDelete()
-		fmt.Printf("Deleted %v documents of: %s\n", result.DeletedCount, v.BID)
+		// fmt.Println("Written data: ", v.BID)
+		// filterDelete := bson.M{
+		// 	"bid":       v.BID,
+		// 	"timestamp": bson.M{"$lt": processTillTime},
+		// }
+		// ctxDelete, cancelDelete := context.WithCancel(context.Background())
+
+		// result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
+		// if err != nil {
+		// 	log.Println(err)
+		// }
+		// cancelDelete()
+		// fmt.Printf("Deleted %v documents of: %s\n", result.DeletedCount, v.BID)
 
 		// -----------------------------------------------------------------------------------
 
