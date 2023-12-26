@@ -20,9 +20,9 @@ RUN go mod download
 #RUN go build server.go
 #ENTRYPOINT ["./server"]
 
-COPY ./strix.go .
+COPY ./signalProcessing.go .
 
-RUN go build strix.go
+RUN go build signalProcessing.go
 
-ENTRYPOINT ["./strix"]
+ENTRYPOINT ["./signalProcessing"]
 
