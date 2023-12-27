@@ -111,19 +111,19 @@ func handlePostRequest(client *mongo.Client) {
 	// -----------------------------------------------
 
 	colBatDataMain := client.Database("portal").Collection("batDataMain")
-	colProcessedData := client.Database("portal").Collection("processedAnalytics_testing")
 	//initialTime := uint64(1690196118000)
+
 	currentTime := time.Now()
 	fmt.Println(currentTime)
-	initialTime := uint64(currentTime.Add(-15 * 24 * time.Hour).UnixNano()/int64(time.Millisecond))
+	initialTime := uint64(currentTime.Add(-15*24*time.Hour).UnixNano() / int64(time.Millisecond))
 	fmt.Println(initialTime)
-	
+
 	pastFiveDays := currentTime.Add(-5 * 24 * time.Hour)
 	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 23, 59, 59, 999999999, pastFiveDays.Location())
 
 	processTillTime := uint64(endTime.UnixNano() / int64(time.Millisecond))
 
-	// index := 0
+	index := 0
 	for _, v := range batDataAllObjArray {
 		globalTimeStart := initialTime
 		if v.LASTTIME != 0 {
@@ -202,6 +202,10 @@ func handlePostRequest(client *mongo.Client) {
 
 			if len(dataToIns.SOC) > 0 {
 
+				timeObj := time.Unix(int64(dataToIns.FROM/1000), 0)
+				year := timeObj.Year()
+				colProcessedData := client.Database("portal").Collection("processedAnalyticsTesting" + strconv.Itoa(year))
+
 				_, err := colProcessedData.InsertOne(context.TODO(), dataToIns)
 				if err != nil {
 					log.Fatal(err)
@@ -217,39 +221,38 @@ func handlePostRequest(client *mongo.Client) {
 			}
 
 			//--------------------------------Saving timestamp for upgraded-------------------
-			// filterBatData := bson.M{"bid": v.BID}
-			// toUpdate := bson.M{
-			// 	"$set": bson.M{
-			// 		"lastProcessedAnalytics": tempTo,
-			// 	},
-			// }
-			// lastProcessRes, lastProcessErr := colBatDataAll.UpdateOne(context.TODO(), filterBatData, toUpdate)
-			// if lastProcessRes.MatchedCount == 0 || lastProcessErr != nil {
+			filterBatData := bson.M{"bid": v.BID}
+			toUpdate := bson.M{
+				"$set": bson.M{
+					"lastProcessedAnalytics": tempTo,
+				},
+			}
+			lastProcessRes, lastProcessErr := colBatDataAll.UpdateOne(context.TODO(), filterBatData, toUpdate)
+			if lastProcessRes.MatchedCount == 0 || lastProcessErr != nil {
 
-			// 	fmt.Println("Error occured while updating...")
-
-			// }
+				fmt.Println("Error occured while updating...")
+			}
 
 			//-------------------------------------------------------------------------------
 		}
 		fmt.Println(v.BID)
 		// -----------------  Delete old data of BID whose data is proccessed -------------
-		// index++
-		// fmt.Println("Written data: ", v.BID, index)
-		// filterDelete := bson.M{
-		// 	"bid":       v.BID,
-		// 	"timestamp": bson.M{"$lt": processTillTime},
-		// }
-		// ctxDelete, cancelDelete := context.WithCancel(context.Background())
+		index++
+		fmt.Println("Written data: ", v.BID, index)
+		filterDelete := bson.M{
+			"bid":       v.BID,
+			"timestamp": bson.M{"$lt": processTillTime},
+		}
+		ctxDelete, cancelDelete := context.WithCancel(context.Background())
 
-		// fmt.Println("Deleting with filter: ", filterDelete)
-		// result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
+		fmt.Println("Deleting with filter: ", filterDelete)
+		result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
 
-		// if err != nil {
-		// 	log.Println(err)
-		// }
-		// cancelDelete()
-		// fmt.Printf("Deleted %v documents of: %s\n", result.DeletedCount, v.BID)
+		if err != nil {
+			log.Println(err)
+		}
+		cancelDelete()
+		fmt.Printf("Deleted %v documents of: %s\n", result.DeletedCount, v.BID)
 
 		// -----------------------------------------------------------------------------------
 
