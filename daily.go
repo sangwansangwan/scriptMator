@@ -112,8 +112,12 @@ func handlePostRequest(client *mongo.Client) {
 
 	colBatDataMain := client.Database("portal").Collection("batDataMain")
 	colProcessedData := client.Database("portal").Collection("processedAnalytics_testing")
-	initialTime := uint64(1690196118000)
+	//initialTime := uint64(1690196118000)
 	currentTime := time.Now()
+	fmt.Println(currentTime)
+	initialTime := uint64(currentTime.Add(-15 * 24 * time.Hour).UnixNano()/int64(time.Millisecond))
+	fmt.Println(initialTime)
+	
 	pastFiveDays := currentTime.Add(-5 * 24 * time.Hour)
 	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 23, 59, 59, 999999999, pastFiveDays.Location())
 
@@ -272,6 +276,8 @@ func main() {
 	}
 
 	handlePostRequest(client)
+
+	fmt.Println(time.Now())
 
 	client.Disconnect(context.TODO())
 }
