@@ -106,8 +106,6 @@ func handlePostRequest(client *mongo.Client) {
 		log.Fatal(err)
 	}
 
-	//return;
-
 	// -----------------------------------------------
 
 	colBatDataMain := client.Database("portal").Collection("batDataMain")
@@ -118,13 +116,16 @@ func handlePostRequest(client *mongo.Client) {
 	initialTime := uint64(currentTime.Add(-15*24*time.Hour).UnixNano() / int64(time.Millisecond))
 	fmt.Println(initialTime)
 
-	pastFiveDays := currentTime.Add(-5 * 24 * time.Hour)
-	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 23, 59, 59, 999999999, pastFiveDays.Location())
+	pastFiveDays := currentTime.Add(-4 * 24 * time.Hour)
+	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 0, 0, 0, 0, pastFiveDays.Location())
 
 	processTillTime := uint64(endTime.UnixNano() / int64(time.Millisecond))
 
 	index := 0
 	for _, v := range batDataAllObjArray {
+		// if v.BID != "A843A385" {
+		// 	continue
+		// }
 		globalTimeStart := initialTime
 		if v.LASTTIME != 0 {
 			globalTimeStart = v.LASTTIME
@@ -138,8 +139,9 @@ func handlePostRequest(client *mongo.Client) {
 
 			filter1 := bson.M{"timestamp": bson.M{"$gte": tempFrom, "$lt": tempTo}, "bid": v.BID}
 			ctx1, cancel1 := context.WithCancel(context.Background())
-
-			cur, err := colBatDataMain.Find(ctx1, filter1)
+			findOptionsMain := options.Find()
+			findOptionsMain.SetSort(bson.D{{"timestamp", 1}})
+			cur, err := colBatDataMain.Find(ctx1, filter1, findOptionsMain)
 			if err != nil {
 				log.Println(err)
 			}
@@ -149,13 +151,6 @@ func handlePostRequest(client *mongo.Client) {
 			dataToIns.BID = v.BID
 			dataToIns.FROM = tempFrom
 			dataToIns.TO = tempTo
-
-			bidDec, err := strconv.ParseUint(v.BID, 16, 64)
-			// in case of any error
-			if err != nil {
-				fmt.Println(err)
-			}
-			dataToIns.BID_DEC = bidDec
 
 			for cur.Next(context.TODO()) {
 
@@ -204,7 +199,7 @@ func handlePostRequest(client *mongo.Client) {
 
 				timeObj := time.Unix(int64(dataToIns.FROM/1000), 0)
 				year := timeObj.Year()
-				colProcessedData := client.Database("portal").Collection("processedAnalyticsTesting" + strconv.Itoa(year))
+				colProcessedData := client.Database("portal").Collection("processedAnalytics" + strconv.Itoa(year))
 
 				_, err := colProcessedData.InsertOne(context.TODO(), dataToIns)
 				if err != nil {
@@ -235,10 +230,11 @@ func handlePostRequest(client *mongo.Client) {
 
 			//-------------------------------------------------------------------------------
 		}
-		fmt.Println(v.BID)
+		// fmt.Println(v.BID)
 		// -----------------  Delete old data of BID whose data is proccessed -------------
 		index++
-		fmt.Println("Written data: ", v.BID, index)
+		fmt.Println("Written data: ", v.BID, index, processTillTime)
+
 		filterDelete := bson.M{
 			"bid":       v.BID,
 			"timestamp": bson.M{"$lt": processTillTime},
