@@ -112,20 +112,23 @@ func handlePostRequest(client *mongo.Client) {
 	//initialTime := uint64(1690196118000)
 
 	currentTime := time.Now()
+
 	fmt.Println(currentTime)
 	initialTime := uint64(currentTime.Add(-15*24*time.Hour).UnixNano() / int64(time.Millisecond))
 	fmt.Println(initialTime)
 
 	pastFiveDays := currentTime.Add(-4 * 24 * time.Hour)
-	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 0, 0, 0, 0, pastFiveDays.Location())
+	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 0, 0, 0, 0, time.UTC)
 
 	processTillTime := uint64(endTime.UnixNano() / int64(time.Millisecond))
 
 	index := 0
 	for _, v := range batDataAllObjArray {
+
 		// if v.BID != "A843A385" {
 		// 	continue
 		// }
+
 		globalTimeStart := initialTime
 		if v.LASTTIME != 0 {
 			globalTimeStart = v.LASTTIME
