@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -16,60 +15,39 @@ import (
 
 //var client *mongo.Client
 
-type BatDataMain struct {
-	ID      string `bson:"_id,omitempty"`
-	SOC     uint32 `bson:"soc"`
-	SOH     uint32 `bson:"soh"`
-	CURR    int32  `bson:"curr"`
-	PV      uint32 `bson:"pv"`
-	CYCLES  uint32 `bson:"cycles"`
-	BRDTEMP int32  `bson:"brdtemp"`
-	RPWR    uint32 `bson:"rpwr"`
-	STATUS  uint32 `bson:"status"`
-	SOHWS   uint32 `bson:"sohws"`
-
-	CV string `bson:"cellvolt"`
-	TS string `bson:"tempsen"`
-
-	CELLVOLT  []uint32 `bson:"cellvoltnew"`
-	TEMPSEN   []int32  `bson:"tempsennew"`
-	Timestamp int64    `bson:"timestamp"`
+type BatDataSignal struct {
+	ID             string `bson:"_id,omitempty"`
+	CellID         int64  `bson:"cellId,omitempty"`
+	CcID           string `bson:"ccid,omitempty"`
+	Mid            string `bson:"mid,omitempty"`
+	NetworkStatus  int32  `bson:"networkStatus,omitempty"`
+	SignalStrength int32  `bson:"signalStrength,omitempty"`
+	Ber            int32  `bson:"ber,omitempty"`
+	SpnCode        int64  `bson:"spnCode,omitempty"`
+	Imei           string `bson:"imei,omitempty"`
+	AreaCode       int32  `bson:"areaCode,omitempty"`
+	Timestamp      int64  `bson:"timestamp"`
 }
 
 type BatDataAll struct {
 	BID      string `bson:"bid"`
-	LASTTIME uint64 `bson:"lastProcessedAnalytics, omitempty"`
+	LASTTIME uint64 `bson:"lastSignalProcessing, omitempty"`
 }
 
 type ProcessedData struct {
-	SOC       []uint32
-	BID       string
-	FROM      uint64
-	TO        uint64
-	SOH       []uint32
-	CURR      []int32
-	PV        []uint32
-	CYCLES    []uint32
-	BRDTEMP   []int32
-	RPWR      []uint32
-	STATUS    []uint32
-	SOHWS     []uint32
-	TIMESTAMP []int64
-	TEMPSEN   [][]int32
-	CELLVOLT  [][]uint32
-	BID_DEC   uint64
-}
-
-type CVAStruct struct {
-	CellVoltP []uint32 `json:"cellvolt"`
-}
-
-type TempStruct struct {
-	TempSenP []int32 `json:"tempsen"`
-}
-
-type LocalData struct {
-	Bid uint32 `json:"value"`
+	CELLID          []int64
+	CCID            []string
+	BID             string
+	MID             string
+	NETWORKSTRENGTH []int32
+	SIGNALSTRENGTH  []int32
+	BER             []int32
+	SPNCODE         []int64
+	FROM            uint64
+	TO              uint64
+	IMEI            string
+	AREACODE        []int32
+	TIMESTAMP       []int64
 }
 
 func handlePostRequest(client *mongo.Client) {
@@ -108,8 +86,7 @@ func handlePostRequest(client *mongo.Client) {
 
 	// -----------------------------------------------
 
-	colBatDataMain := client.Database("portal").Collection("batDataMain")
-	//initialTime := uint64(1690196118000)
+	colBatSignal := client.Database("portal").Collection("batDataSignal")
 
 	currentTime := time.Now()
 
@@ -144,7 +121,7 @@ func handlePostRequest(client *mongo.Client) {
 			ctx1, cancel1 := context.WithCancel(context.Background())
 			findOptionsMain := options.Find()
 			findOptionsMain.SetSort(bson.D{{"timestamp", 1}})
-			cur, err := colBatDataMain.Find(ctx1, filter1, findOptionsMain)
+			cur, err := colBatSignal.Find(ctx1, filter1, findOptionsMain)
 			if err != nil {
 				log.Println(err)
 			}
@@ -164,32 +141,17 @@ func handlePostRequest(client *mongo.Client) {
 					log.Fatal(err)
 				}
 
-				var cellDataProcessed CVAStruct
-				var tempDataProcessed TempStruct
-
-				errCV := json.Unmarshal([]byte(result.CV), &cellDataProcessed)
-				if errCV != nil {
-					fmt.Println("Eror unmarshalling cellvolt", result.ID)
-				}
-
-				errTMP := json.Unmarshal([]byte(result.TS), &tempDataProcessed)
-				if errTMP != nil {
-					fmt.Println("Eror unmarshalling tempsen ", result.ID)
-				}
-
-				dataToIns.SOC = append(dataToIns.SOC, result.SOC)
-				dataToIns.SOH = append(dataToIns.SOH, result.SOH)
-				dataToIns.CURR = append(dataToIns.CURR, result.CURR)
-				dataToIns.PV = append(dataToIns.PV, result.PV)
-				dataToIns.CYCLES = append(dataToIns.CYCLES, result.CYCLES)
-				dataToIns.BRDTEMP = append(dataToIns.BRDTEMP, result.BRDTEMP)
-				dataToIns.RPWR = append(dataToIns.RPWR, result.RPWR)
-				dataToIns.STATUS = append(dataToIns.STATUS, result.STATUS)
-				dataToIns.SOHWS = append(dataToIns.SOHWS, result.SOHWS)
+				dataToIns.AREACODE = append(dataToIns.AREACODE, result.AreaCode)
+				dataToIns.BER = append(dataToIns.BER, result.Ber)
+				dataToIns.CELLID = append(dataToIns.CELLID, result.CellID)
+				dataToIns.CCID = append(dataToIns.CCID, result.CcID)
+				dataToIns.NETWORKSTRENGTH = append(dataToIns.NETWORKSTRENGTH, result.NetworkStatus)
+				dataToIns.SIGNALSTRENGTH = append(dataToIns.SIGNALSTRENGTH, result.SignalStrength)
+				dataToIns.SPNCODE = append(dataToIns.SPNCODE, result.SpnCode)
+				dataToIns.AREACODE = append(dataToIns.AREACODE, result.AreaCode)
 				dataToIns.TIMESTAMP = append(dataToIns.TIMESTAMP, result.Timestamp)
-				dataToIns.CELLVOLT = append(dataToIns.CELLVOLT, cellDataProcessed.CellVoltP)
-				dataToIns.TEMPSEN = append(dataToIns.TEMPSEN, tempDataProcessed.TempSenP)
-
+				dataToIns.MID = result.Mid
+				dataToIns.IMEI = result.Imei
 			}
 
 			if err := cur.Err(); err != nil {
@@ -198,7 +160,7 @@ func handlePostRequest(client *mongo.Client) {
 
 			cancel1()
 
-			if len(dataToIns.SOC) > 0 {
+			if len(dataToIns.TIMESTAMP) > 0 {
 
 				timeObj := time.Unix(int64(dataToIns.FROM/1000), 0)
 				year := timeObj.Year()
@@ -222,7 +184,7 @@ func handlePostRequest(client *mongo.Client) {
 			filterBatData := bson.M{"bid": v.BID}
 			toUpdate := bson.M{
 				"$set": bson.M{
-					"lastProcessedAnalytics": tempTo,
+					"lastSignalProcessing": tempTo,
 				},
 			}
 			lastProcessRes, lastProcessErr := colBatDataAll.UpdateOne(context.TODO(), filterBatData, toUpdate)
@@ -244,8 +206,7 @@ func handlePostRequest(client *mongo.Client) {
 		}
 		ctxDelete, cancelDelete := context.WithCancel(context.Background())
 
-		fmt.Println("Deleting with filter: ", filterDelete)
-		result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
+		result, err := colBatSignal.DeleteMany(ctxDelete, filterDelete)
 
 		if err != nil {
 			log.Println(err)
@@ -267,7 +228,7 @@ func handlePostRequest(client *mongo.Client) {
 
 func main() {
 
-	fmt.Println("Script version: 14")
+	fmt.Println("Daily Signal Script version: 15")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	clientOptions := options.Client().ApplyURI("mongodb://administrator:%26%5E%23%25%21%2612dgf_%23%26@15.207.150.151:49125/?authSource=portal&readPreference=primary&directConnection=true&ssl=false")
 	client, err := mongo.Connect(ctx, clientOptions)

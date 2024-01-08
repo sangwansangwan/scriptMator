@@ -89,8 +89,8 @@ func handlePostRequest(client *mongo.Client) {
 	initialTime := uint64(1703552461000)
 	processTillTime := uint64(1703638861000)
 
-	index := 10
-	for i := 1034; i < len(batDataAllObjArray); i++ {
+	index := 0
+	for i := 0; i < len(batDataAllObjArray); i++ {
 		v := batDataAllObjArray[i]
 
 		filter1 := bson.M{"timestamp": bson.M{"$gte": initialTime, "$lte": processTillTime}, "bid": v.BID}
