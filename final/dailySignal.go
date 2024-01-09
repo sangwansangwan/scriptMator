@@ -134,7 +134,7 @@ func handlePostRequest(client *mongo.Client) {
 
 			for cur.Next(context.TODO()) {
 
-				var result BatDataMain
+				var result BatDataSignal
 
 				err := cur.Decode(&result)
 				if err != nil {

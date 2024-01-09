@@ -102,10 +102,6 @@ func handlePostRequest(client *mongo.Client) {
 	index := 0
 	for _, v := range batDataAllObjArray {
 
-		// if v.BID != "A843A385" {
-		// 	continue
-		// }
-
 		globalTimeStart := initialTime
 		if v.LASTTIME != 0 {
 			globalTimeStart = v.LASTTIME
@@ -134,7 +130,7 @@ func handlePostRequest(client *mongo.Client) {
 
 			for cur.Next(context.TODO()) {
 
-				var result BatDataMain
+				var result BatDataSignal
 
 				err := cur.Decode(&result)
 				if err != nil {
@@ -164,7 +160,7 @@ func handlePostRequest(client *mongo.Client) {
 
 				timeObj := time.Unix(int64(dataToIns.FROM/1000), 0)
 				year := timeObj.Year()
-				colProcessedData := client.Database("portal").Collection("processedAnalytics" + strconv.Itoa(year))
+				colProcessedData := client.Database("portal").Collection("processedSignal" + strconv.Itoa(year))
 
 				_, err := colProcessedData.InsertOne(context.TODO(), dataToIns)
 				if err != nil {
