@@ -20,9 +20,9 @@ RUN go mod download
 #RUN go build server.go
 #ENTRYPOINT ["./server"]
 
-COPY ./signalProcessing.go .
+COPY ./dailySignal.go .
 
-RUN go build signalProcessing.go
+RUN go build dailySignal.go
 
-ENTRYPOINT ["./signalProcessing"]
+ENTRYPOINT ["./dailySignal"]
 
