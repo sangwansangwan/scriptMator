@@ -90,7 +90,7 @@ func handlePostRequest(client *mongo.Client) {
 
 	colBatDataLocation := client.Database("portal").Collection("batDataLocation")
 	colProcessedData := client.Database("portal").Collection("processedLocation2023")
-	initialTime := uint64(1411603200000)
+	initialTime := uint64(1609459200000)
 	// initialTime := uint64(1411687815032)
 	//processTillTime := uint64(1690196118000)
 	processTillTime := uint64(1693526400000)
