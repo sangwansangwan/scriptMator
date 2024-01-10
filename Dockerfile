@@ -20,9 +20,9 @@ RUN go mod download
 #RUN go build server.go
 #ENTRYPOINT ["./server"]
 
-COPY ./dailySignal.go .
+COPY ./bulkexthree.go .
 
-RUN go build dailySignal.go
+RUN go build bulkexthree.go
 
-ENTRYPOINT ["./dailySignal"]
+ENTRYPOINT ["./bulkexthree"]
 

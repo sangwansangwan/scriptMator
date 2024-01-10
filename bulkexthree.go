@@ -143,6 +143,7 @@ func handlePostRequest(client *mongo.Client) {
 				dataToIns.RPWR = append(dataToIns.RPWR, result.RPWR)
 				dataToIns.LAT = append(dataToIns.LAT, result.LAT)
 				dataToIns.LATD = append(dataToIns.LATD, result.LATD)
+				dataToIns.RPWR = append(dataToIns.RPWR, result.RPWR)
 				dataToIns.LON = append(dataToIns.LON, result.LON)
 				dataToIns.ALTITUDE = append(dataToIns.ALTITUDE, result.ALTITUDE)
 				dataToIns.TIMESTAMP = append(dataToIns.TIMESTAMP, result.TIMESTAMP)
