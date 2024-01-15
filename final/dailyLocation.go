@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,40 +16,60 @@ import (
 
 //var client *mongo.Client
 
-type BatDataLocation struct {
-	ID        string  `bson:"_id,omitempty"`
-	LOND      int32   `bson:"lond"`
-	SATELLITE int32   `bson:"satellite"`
-	TIME      int64   `bson:"time"`
-	RPWR      uint32  `bson:"rpwr"`
-	LAT       float64 `bson:"lat"`
-	LATD      int32   `bson:"latd"`
-	LON       float64 `bson:"lon"`
-	ALTITUDE  int32   `bson:"altitude"`
-	SPEED     int32   `bson:"speed"`
-	TIMESTAMP int64   `bson:"timestamp"`
-	MID       string  `bson:"mid"`
+type BatDataSignal struct {
+	ID      string `bson:"_id,omitempty"`
+	TIME    uint32 `bson:"time"`
+	RPWR    uint32 `bson:"soh"`
+	CURR    int32  `bson:"curr"`
+	PV      uint32 `bson:"pv"`
+	CYCLES  uint32 `bson:"cycles"`
+	BRDTEMP int32  `bson:"brdtemp"`
+	RPWR    uint32 `bson:"rpwr"`
+	STATUS  uint32 `bson:"status"`
+	SOHWS   uint32 `bson:"sohws"`
+
+	CV string `bson:"cellvolt"`
+	TS string `bson:"tempsen"`
+
+	CELLVOLT  []uint32 `bson:"cellvoltnew"`
+	TEMPSEN   []int32  `bson:"tempsennew"`
+	Timestamp int64    `bson:"timestamp"`
 }
 
 type BatDataAll struct {
 	BID      string `bson:"bid"`
-	LASTTIME uint64 `bson:"lastProcessedLocation, omitempty"`
+	LASTTIME uint64 `bson:"lastProcessedAnalytics, omitempty"`
 }
 
 type ProcessedData struct {
-	TO        uint64
-	FROM      uint64
-	MID       string
+	SOC       []uint32
 	BID       string
-	LOND      []int32
-	SATELLITE []int32
-	TIME      []int64
+	FROM      uint64
+	TO        uint64
+	SOH       []uint32
+	CURR      []int32
+	PV        []uint32
+	CYCLES    []uint32
+	BRDTEMP   []int32
 	RPWR      []uint32
-	LAT       []float64
-	LATD      []int32
-	LON       []float64
-	ALTITUDE  []int32
+	STATUS    []uint32
+	SOHWS     []uint32
 	TIMESTAMP []int64
+	TEMPSEN   [][]int32
+	CELLVOLT  [][]uint32
+	BID_DEC   uint64
+}
+
+type CVAStruct struct {
+	CellVoltP []uint32 `json:"cellvolt"`
+}
+
+type TempStruct struct {
+	TempSenP []int32 `json:"tempsen"`
+}
+
+type LocalData struct {
+	Bid uint32 `json:"value"`
 }
 
 func handlePostRequest(client *mongo.Client) {
@@ -84,19 +106,28 @@ func handlePostRequest(client *mongo.Client) {
 		log.Fatal(err)
 	}
 
-	//return;
-
 	// -----------------------------------------------
 
-	colBatDataLocation := client.Database("portal").Collection("batDataLocation")
-	colProcessedData := client.Database("portal").Collection("processedLocation2023")
-	initialTime := uint64(1672531200000)
-	// initialTime := uint64(1411687815032)
-	//processTillTime := uint64(1690196118000)
-	processTillTime := uint64(1693526400000)
+	colBatDataMain := client.Database("portal").Collection("batDataMain")
+	//initialTime := uint64(1690196118000)
+
+	currentTime := time.Now()
+
+	fmt.Println(currentTime)
+	initialTime := uint64(currentTime.Add(-15*24*time.Hour).UnixNano() / int64(time.Millisecond))
+	fmt.Println(initialTime)
+
+	pastFiveDays := currentTime.Add(-4 * 24 * time.Hour)
+	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 0, 0, 0, 0, time.UTC)
+
+	processTillTime := uint64(endTime.UnixNano() / int64(time.Millisecond))
 
 	index := 0
 	for _, v := range batDataAllObjArray {
+
+		// if v.BID != "A843A385" {
+		// 	continue
+		// }
 
 		globalTimeStart := initialTime
 		if v.LASTTIME != 0 {
@@ -111,8 +142,9 @@ func handlePostRequest(client *mongo.Client) {
 
 			filter1 := bson.M{"timestamp": bson.M{"$gte": tempFrom, "$lt": tempTo}, "bid": v.BID}
 			ctx1, cancel1 := context.WithCancel(context.Background())
-
-			cur, err := colBatDataLocation.Find(ctx1, filter1)
+			findOptionsMain := options.Find()
+			findOptionsMain.SetSort(bson.D{{"timestamp", 1}})
+			cur, err := colBatDataMain.Find(ctx1, filter1, findOptionsMain)
 			if err != nil {
 				log.Println(err)
 			}
@@ -123,30 +155,40 @@ func handlePostRequest(client *mongo.Client) {
 			dataToIns.FROM = tempFrom
 			dataToIns.TO = tempTo
 
-			// in case of any error
-			if err != nil {
-				fmt.Println(err)
-			}
-
 			for cur.Next(context.TODO()) {
 
-				var result BatDataLocation
+				var result BatDataMain
 
 				err := cur.Decode(&result)
 				if err != nil {
 					log.Fatal(err)
 				}
 
-				dataToIns.LOND = append(dataToIns.LOND, result.LOND)
-				dataToIns.SATELLITE = append(dataToIns.SATELLITE, result.SATELLITE)
-				dataToIns.TIME = append(dataToIns.TIME, result.TIME)
+				var cellDataProcessed CVAStruct
+				var tempDataProcessed TempStruct
+
+				errCV := json.Unmarshal([]byte(result.CV), &cellDataProcessed)
+				if errCV != nil {
+					fmt.Println("Eror unmarshalling cellvolt", result.ID)
+				}
+
+				errTMP := json.Unmarshal([]byte(result.TS), &tempDataProcessed)
+				if errTMP != nil {
+					fmt.Println("Eror unmarshalling tempsen ", result.ID)
+				}
+
+				dataToIns.SOC = append(dataToIns.SOC, result.SOC)
+				dataToIns.SOH = append(dataToIns.SOH, result.SOH)
+				dataToIns.CURR = append(dataToIns.CURR, result.CURR)
+				dataToIns.PV = append(dataToIns.PV, result.PV)
+				dataToIns.CYCLES = append(dataToIns.CYCLES, result.CYCLES)
+				dataToIns.BRDTEMP = append(dataToIns.BRDTEMP, result.BRDTEMP)
 				dataToIns.RPWR = append(dataToIns.RPWR, result.RPWR)
-				dataToIns.LAT = append(dataToIns.LAT, result.LAT)
-				dataToIns.LATD = append(dataToIns.LATD, result.LATD)
-				dataToIns.LON = append(dataToIns.LON, result.LON)
-				dataToIns.ALTITUDE = append(dataToIns.ALTITUDE, result.ALTITUDE)
-				dataToIns.TIMESTAMP = append(dataToIns.TIMESTAMP, result.TIMESTAMP)
-				dataToIns.MID = result.MID
+				dataToIns.STATUS = append(dataToIns.STATUS, result.STATUS)
+				dataToIns.SOHWS = append(dataToIns.SOHWS, result.SOHWS)
+				dataToIns.TIMESTAMP = append(dataToIns.TIMESTAMP, result.Timestamp)
+				dataToIns.CELLVOLT = append(dataToIns.CELLVOLT, cellDataProcessed.CellVoltP)
+				dataToIns.TEMPSEN = append(dataToIns.TEMPSEN, tempDataProcessed.TempSenP)
 
 			}
 
@@ -156,7 +198,11 @@ func handlePostRequest(client *mongo.Client) {
 
 			cancel1()
 
-			if len(dataToIns.TIMESTAMP) > 0 {
+			if len(dataToIns.SOC) > 0 {
+
+				timeObj := time.Unix(int64(dataToIns.FROM/1000), 0)
+				year := timeObj.Year()
+				colProcessedData := client.Database("portal").Collection("processedAnalytics" + strconv.Itoa(year))
 
 				_, err := colProcessedData.InsertOne(context.TODO(), dataToIns)
 				if err != nil {
@@ -176,30 +222,29 @@ func handlePostRequest(client *mongo.Client) {
 			filterBatData := bson.M{"bid": v.BID}
 			toUpdate := bson.M{
 				"$set": bson.M{
-					"lastProcessedLocation": tempTo,
+					"lastProcessedAnalytics": tempTo,
 				},
 			}
 			lastProcessRes, lastProcessErr := colBatDataAll.UpdateOne(context.TODO(), filterBatData, toUpdate)
 			if lastProcessRes.MatchedCount == 0 || lastProcessErr != nil {
 
 				fmt.Println("Error occured while updating...")
-
 			}
 
 			//-------------------------------------------------------------------------------
 		}
-
+		// fmt.Println(v.BID)
 		// -----------------  Delete old data of BID whose data is proccessed -------------
 		index++
-		fmt.Println("Written data: ", v.BID, index)
+		fmt.Println("Written data: ", v.BID, index, processTillTime)
+
 		filterDelete := bson.M{
 			"bid":       v.BID,
 			"timestamp": bson.M{"$lt": processTillTime},
 		}
 		ctxDelete, cancelDelete := context.WithCancel(context.Background())
 
-		fmt.Println("Deleting with filter: ", filterDelete)
-		result, err := colBatDataLocation.DeleteMany(ctxDelete, filterDelete)
+		result, err := colBatDataMain.DeleteMany(ctxDelete, filterDelete)
 
 		if err != nil {
 			log.Println(err)
@@ -232,6 +277,8 @@ func main() {
 	}
 
 	handlePostRequest(client)
+
+	fmt.Println(time.Now())
 
 	client.Disconnect(context.TODO())
 }
