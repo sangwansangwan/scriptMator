@@ -90,16 +90,16 @@ func handlePostRequest(client *mongo.Client) {
 
 	currentTime := time.Now()
 
-	fmt.Println(currentTime)
+	// fmt.Println(currentTime)
 	initialTime := uint64(currentTime.Add(-15*24*time.Hour).UnixNano() / int64(time.Millisecond))
-	fmt.Println(initialTime)
+	// fmt.Println(initialTime)
 
 	pastFiveDays := currentTime.Add(-4 * 24 * time.Hour)
 	endTime := time.Date(pastFiveDays.Year(), pastFiveDays.Month(), pastFiveDays.Day(), 0, 0, 0, 0, time.UTC)
 
 	processTillTime := uint64(endTime.UnixNano() / int64(time.Millisecond))
 
-	index := 0
+	// index := 0
 	for _, v := range batDataAllObjArray {
 
 		globalTimeStart := initialTime
@@ -168,12 +168,12 @@ func handlePostRequest(client *mongo.Client) {
 				}
 				// currentTime := time.Now()
 				// fmt.Println(currentTime.Format("2006-01-02 15:04:05"), " => ", " Inserted ==>:", insertResult.InsertedID)
-				fmt.Print("$")
+				// fmt.Print("$")
 
 			} else {
 				// currentTime := time.Now()
 				// fmt.Println(currentTime.Format("2006-01-02 15:04:05"), " => ", )
-				fmt.Print(".")
+				// fmt.Print(".")
 			}
 
 			//--------------------------------Saving timestamp for upgraded-------------------
@@ -193,8 +193,8 @@ func handlePostRequest(client *mongo.Client) {
 		}
 		// fmt.Println(v.BID)
 		// -----------------  Delete old data of BID whose data is proccessed -------------
-		index++
-		fmt.Println("Written data: ", v.BID, index, processTillTime)
+		// index++
+		// fmt.Println("Written data: ", v.BID, index, processTillTime)
 
 		filterDelete := bson.M{
 			"bid":       v.BID,
@@ -218,13 +218,15 @@ func handlePostRequest(client *mongo.Client) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Connection to MongoDB closed.")
+	currentTimeEnd := time.Now()
+	fmt.Println("Connection to MongoDB closed.", currentTimeEnd)
 
 }
 
 func main() {
 
-	fmt.Println("Daily Signal Script version: 15")
+	currentStartTime := time.Now()
+	fmt.Println("Signal Script : ", currentStartTime)
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	clientOptions := options.Client().ApplyURI("mongodb://administrator:%26%5E%23%25%21%2612dgf_%23%26@15.207.150.151:49125/?authSource=portal&readPreference=primary&directConnection=true&ssl=false")
 	client, err := mongo.Connect(ctx, clientOptions)
@@ -235,8 +237,6 @@ func main() {
 	}
 
 	handlePostRequest(client)
-
-	fmt.Println(time.Now())
 
 	client.Disconnect(context.TODO())
 }
